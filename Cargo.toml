@@ -1,0 +1,7 @@
+[package]
+name = "htma"
+version = "0.0.1"
+authors = ["&nbsp;"]
+
+[[bin]]
+name = "htma"
