@@ -19,12 +19,12 @@ mod htma
     memory_address: String,
   }
 
-  enum URI_State
+  enum URIState
   {
-    URI_Space,
-    URI_Optional_Slash,
-    URI_Size,
-    URI_Memory,
+    URISpace,
+    URIOptionalSlash,
+    URISize,
+    URIMemory,
   }
 
   /// `htparse` will take in the first line of an http request and return the specified memory
@@ -43,19 +43,19 @@ mod htma
     let mut temp_memory_size = "".to_string();
 
     //dat state machine
-    let mut state = URI_Space;
+    let mut state = URISpace;
     for c in input.chars()
     {
       match state
       {
         //find the first space (seperates verb and uri)
-        URI_Space => if(' ' == c){state = URI_Optional_Slash;},
+        URISpace => {if(' ' == c){state = URIOptionalSlash;}},
         //consume slash if uri starts with it, otherwise treat it as the first character of the size
-        URI_Optional_Slash => if('/' != c){temp_memory_size.push(c);}state = URI_Size;,
-        //get the amount of memory will we be using
-        URI_Size => if('/' != c){temp_memory_size.push(c);}else{state = URI_Memory;},
+        URIOptionalSlash => {if('/' != c){memory.memory_address.push(c);}state = URIMemory},
         //get the address of memory we will be using, stopping when we hit a space
-        URI_Memory => if(' ' != c){memory.memory_address.push(c);}else{break;},
+        URIMemory => {if('/' != c){memory.memory_address.push(c);}else{state = URISize;}},
+        //get the amount of memory will we be using
+        URISize => {if(' ' != c){temp_memory_size.push(c);}else{break;}},
       }
     }
     memory

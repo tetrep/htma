@@ -15,6 +15,8 @@ requested region of memory is legal to access, and then return it verbatim.
 
 current goal is to dump the memory after a <pre> but that's "far off."
 
+memory-centric design (all resources will be derived from a specified region of memory)
+
 ##why
 - learn rust
 - make an insanely linear server that is compatible with browsers
