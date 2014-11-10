@@ -66,9 +66,51 @@ mod dma
 {
   #![warn(experimental)]
 
-  pub fn read_memory_address(memory_size: uint, memory_address: &str)
-  -> &str
+  use std::num;
+
+  pub fn read_memory_address(memory_size: uint, encoded_memory_address: &str)
+  -> String
   {
-    memory_address
+    let decoded_memory_address = hex_str_to_uint(encoded_memory_address);
+
+    (format!("{}", decoded_memory_address))
+  }
+
+  // because nothing stable can do le hex >.<
+  pub fn hex_str_to_uint(hex_str: &str)
+  -> uint
+  {
+    let mut ret_uint = 0;
+    let mut sig = hex_str.len()-1;
+
+    for c in hex_str.chars()
+    {
+      match c
+      {
+        '0' => {sig -= 1},
+        '1' => {ret_uint = 1*num::pow(16,sig) + ret_uint;},
+        '2' => {ret_uint = 2*num::pow(16,sig) + ret_uint;},
+        '3' => {ret_uint = 3*num::pow(16,sig) + ret_uint;},
+        '4' => {ret_uint = 4*num::pow(16,sig) + ret_uint;},
+        '5' => {ret_uint = 5*num::pow(16,sig) + ret_uint;},
+        '6' => {ret_uint = 6*num::pow(16,sig) + ret_uint;},
+        '7' => {ret_uint = 7*num::pow(16,sig) + ret_uint;},
+        '8' => {ret_uint = 8*num::pow(16,sig) + ret_uint;},
+        '9' => {ret_uint = 9*num::pow(16,sig) + ret_uint;},
+        'a' => {ret_uint = 10*num::pow(16,sig) + ret_uint;},
+        'b' => {ret_uint = 11*num::pow(16,sig) + ret_uint;},
+        'c' => {ret_uint = 12*num::pow(16,sig) + ret_uint;},
+        'd' => {ret_uint = 13*num::pow(16,sig) + ret_uint;},
+        'e' => {ret_uint = 14*num::pow(16,sig) + ret_uint;},
+        'f' => {ret_uint = 15*num::pow(16,sig) + ret_uint;},
+        _   => {ret_uint = 0; break;}, // srsly...
+      }
+
+      println!("{}^{} => {}", c, sig, ret_uint);
+
+      sig -= 1;
+    }
+
+    ret_uint
   }
 }
