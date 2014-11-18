@@ -1,5 +1,8 @@
 fn main()
 {
+  let buffer = "Hello, world!";
+  println!("{}{}", &buffer, buffer.len());
+
   let input = std::io::stdin().read_line()
                 .ok()
                 .expect("failed to read stdin");
@@ -28,7 +31,7 @@ mod htma
   }
 
   /// `htparse` will take in the first line of an http request and return the specified memory
-  /// as a (utf8?) string
+  /// as a utf8 string
   pub fn htparse(input: &str)
   -> String
   {
@@ -66,14 +69,18 @@ mod dma
 {
   #![warn(experimental)]
 
-  use std::num;
+  use std;
 
   pub fn read_memory_address(memory_size: uint, encoded_memory_address: &str)
   -> String
   {
     let decoded_memory_address = hex_str_to_uint(encoded_memory_address);
-
-    (format!("{}", decoded_memory_address))
+    unsafe 
+    {
+      let data;
+      std::slice::raw::buf_as_slice(decoded_memory_address as *const u8, memory_size, |s| {data = s; });
+      (format!("Memory: {}", data))
+    }
   }
 
   // because nothing stable can do le hex >.<
@@ -88,21 +95,21 @@ mod dma
       match c
       {
         '0' => {sig -= 1},
-        '1' => {ret_uint = 1*num::pow(16,sig) + ret_uint;},
-        '2' => {ret_uint = 2*num::pow(16,sig) + ret_uint;},
-        '3' => {ret_uint = 3*num::pow(16,sig) + ret_uint;},
-        '4' => {ret_uint = 4*num::pow(16,sig) + ret_uint;},
-        '5' => {ret_uint = 5*num::pow(16,sig) + ret_uint;},
-        '6' => {ret_uint = 6*num::pow(16,sig) + ret_uint;},
-        '7' => {ret_uint = 7*num::pow(16,sig) + ret_uint;},
-        '8' => {ret_uint = 8*num::pow(16,sig) + ret_uint;},
-        '9' => {ret_uint = 9*num::pow(16,sig) + ret_uint;},
-        'a' => {ret_uint = 10*num::pow(16,sig) + ret_uint;},
-        'b' => {ret_uint = 11*num::pow(16,sig) + ret_uint;},
-        'c' => {ret_uint = 12*num::pow(16,sig) + ret_uint;},
-        'd' => {ret_uint = 13*num::pow(16,sig) + ret_uint;},
-        'e' => {ret_uint = 14*num::pow(16,sig) + ret_uint;},
-        'f' => {ret_uint = 15*num::pow(16,sig) + ret_uint;},
+        '1' => {ret_uint = 1*std::num::pow(16,sig) + ret_uint;},
+        '2' => {ret_uint = 2*std::num::pow(16,sig) + ret_uint;},
+        '3' => {ret_uint = 3*std::num::pow(16,sig) + ret_uint;},
+        '4' => {ret_uint = 4*std::num::pow(16,sig) + ret_uint;},
+        '5' => {ret_uint = 5*std::num::pow(16,sig) + ret_uint;},
+        '6' => {ret_uint = 6*std::num::pow(16,sig) + ret_uint;},
+        '7' => {ret_uint = 7*std::num::pow(16,sig) + ret_uint;},
+        '8' => {ret_uint = 8*std::num::pow(16,sig) + ret_uint;},
+        '9' => {ret_uint = 9*std::num::pow(16,sig) + ret_uint;},
+        'a' => {ret_uint = 10*std::num::pow(16,sig) + ret_uint;},
+        'b' => {ret_uint = 11*std::num::pow(16,sig) + ret_uint;},
+        'c' => {ret_uint = 12*std::num::pow(16,sig) + ret_uint;},
+        'd' => {ret_uint = 13*std::num::pow(16,sig) + ret_uint;},
+        'e' => {ret_uint = 14*std::num::pow(16,sig) + ret_uint;},
+        'f' => {ret_uint = 15*std::num::pow(16,sig) + ret_uint;},
         _   => {ret_uint = 0; break;}, // srsly...
       }
 
