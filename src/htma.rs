@@ -1,7 +1,7 @@
 fn main()
 {
   let buffer = "Hello, world!";
-  println!("{}{}", &buffer, buffer.len());
+  println!("{:p}\n{}", (&buffer), buffer.len());
 
   let input = std::io::stdin().read_line()
                 .ok()
@@ -42,8 +42,8 @@ mod htma
   pub fn tktk_get(input: &str)
   -> Memory
   {
-    let mut memory = Memory{memory_size: 1, memory_address: "".to_string()};
-    let mut temp_memory_size = "".to_string();
+    let mut memory = Memory { memory_size: 0, memory_address: "".to_string() };
+    let mut memory_size_str = String::new();
 
     //dat state machine
     let mut state = URISpace;
@@ -52,15 +52,23 @@ mod htma
       match state
       {
         //find the first space (seperates verb and uri)
-        URISpace => {if(' ' == c){state = URIOptionalSlash;}},
+        URISpace => { if(' ' == c) { state = URIOptionalSlash; } },
         //consume slash if uri starts with it, otherwise treat it as the first character of the size
-        URIOptionalSlash => {if('/' != c){memory.memory_address.push(c);}state = URIMemory},
+        URIOptionalSlash => { if('/' != c) { memory.memory_address.push(c); } state = URIMemory },
         //get the address of memory we will be using, stopping when we hit a space
-        URIMemory => {if('/' != c){memory.memory_address.push(c);}else{state = URISize;}},
+        URIMemory => { if('/' != c) { memory.memory_address.push(c); } else { state = URISize; } },
         //get the amount of memory will we be using
-        URISize => {if(' ' != c){temp_memory_size.push(c);}else{break;}},
+        URISize => { if(' ' != c) { memory_size_str.push(c); } else { break; } },
       }
     }
+
+    let maybe_num = from_str(memory_size_str.as_slice());
+    match maybe_num
+    {
+      Some(number) => memory.memory_size = number,
+      None => memory.memory_size = 0,
+    }
+
     memory
   }
 }
@@ -75,12 +83,13 @@ mod dma
   -> String
   {
     let decoded_memory_address = hex_str_to_uint(encoded_memory_address);
-    unsafe 
-    {
-      let data;
-      std::slice::raw::buf_as_slice(decoded_memory_address as *const u8, memory_size, |s| {data = s; });
-      (format!("Memory: {}", data))
-    }
+    let p = std::raw::Slice {
+        data: (decoded_memory_address as *const u8),
+        len: memory_size
+        };
+    let ret: &[u8] = unsafe { std::mem::transmute(p) };
+
+    format!("{}", ret)
   }
 
   // because nothing stable can do le hex >.<
