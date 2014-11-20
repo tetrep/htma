@@ -11,11 +11,9 @@ to their first line, but that's the http parsing target.
 
 as for how the dma will work, the current theory is to provide the server a size and
 an address in hex (b64 might be supported as well). the server will validate that the
-requested region of memory is legal to access, and then return it verbatim.
+requested region of memory is legal to access, and then return it.
 
-current goal is to dump the memory after a <pre> but that's "far off."
-
-memory-centric design (all resources will be derived from a specified region of memory)
+probably gonna use templating for what to return the memory as.
 
 ##why
 - learn rust

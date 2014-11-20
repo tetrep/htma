@@ -16,11 +16,13 @@ mod htma
   #![warn(experimental)]
 
   use dma;
+  use std;
 
   struct Memory
   {
-    memory_size: uint,
-    memory_address: String,
+    size: uint,
+    string: String,
+    pointer: *const u8,
   }
 
   enum URIState
@@ -34,17 +36,19 @@ mod htma
   /// `htparse` will take in the first line of an http request and return the specified memory
   /// as a utf8 string
   pub fn htparse(input: &str)
-  -> String
+  -> &str
   {
-    let req_mem = tktk_get(input);
-    dma::read_memory_address(req_mem.memory_size, req_mem.memory_address.as_slice()).to_string()
+    let mut req_mem = tktk_get(input);
+    req_mem.pointer = dma::get_memory_pointer(req_mem.size, req_mem.string.as_slice());
+
+    unsafe { *(req_mem.pointer as *const &str) }
   }
 
   pub fn tktk_get(input: &str)
   -> Memory
   {
-    let mut memory = Memory { memory_size: 0, memory_address: "".to_string() };
-    let mut memory_size_str = String::new();
+    let mut memory = Memory { size: 0, string: "".to_string(), pointer: std::ptr::null() };
+    let mut size_str = String::new();
 
     //dat state machine
     let mut state = URISpace;
@@ -55,19 +59,19 @@ mod htma
         //find the first space (seperates verb and uri)
         URISpace => { if(' ' == c) { state = URIOptionalSlash; } },
         //consume slash if uri starts with it, otherwise treat it as the first character of the size
-        URIOptionalSlash => { if('/' != c) { memory.memory_address.push(c); } state = URIMemory },
+        URIOptionalSlash => { if('/' != c) { memory.string.push(c); } state = URIMemory },
         //get the address of memory we will be using, stopping when we hit a space
-        URIMemory => { if('/' != c) { memory.memory_address.push(c); } else { state = URISize; } },
+        URIMemory => { if('/' != c) { memory.string.push(c); } else { state = URISize; } },
         //get the amount of memory will we be using
-        URISize => { if(' ' != c) { memory_size_str.push(c); } else { break; } },
+        URISize => { if(' ' != c) { size_str.push(c); } else { break; } },
       }
     }
 
-    let maybe_num = from_str(memory_size_str.as_slice());
+    let maybe_num = from_str(size_str.as_slice());
     match maybe_num
     {
-      Some(number) => memory.memory_size = number,
-      None => memory.memory_size = 0,
+      Some(number) => memory.size = number,
+      None => memory.size = 0,
     }
 
     memory
@@ -80,13 +84,13 @@ mod dma
 
   use std;
 
-  pub fn read_memory_address(memory_size: uint, encoded_memory_address: &str)
-  -> String
+  pub fn get_memory_pointer(memory_size: uint, encoded_memory_address: &str)
+  -> *const u8
   {
     let decoded_memory_address = hex_str_to_uint(encoded_memory_address);
-    let p: *const &str = unsafe { std::mem::transmute(decoded_memory_address as *const u8) };
+    let p: *const u8 = decoded_memory_address as *const u8;
 
-    format!("ptr: {}\nstr: {}", decoded_memory_address as *const u8, unsafe { *p } )
+    p
   }
 
   // because nothing stable can do le hex >.<
@@ -119,7 +123,7 @@ mod dma
         _   => {ret_uint = 0; break;}, // srsly...
       }
 
-      println!("{}^{} => {}", c, sig, ret_uint);
+      //println!("{}^{} => {}", c, sig, ret_uint);
 
       sig -= 1;
     }
