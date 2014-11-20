@@ -7,18 +7,8 @@ fn main()
                 .ok()
                 .expect("failed to read stdin");
 
-  //println!("{}", htma::htparse(input.as_slice()));
-  //println!("le buffer: {}", buffer);
-  println!("check direct reference read");
-  let mut s = String::new();
-  for c in std::iter::range(0, buffer.len())
-  {
-    //let p: *mut u8 = unsafe { std::mem::transmute(&buffer) };
-    //s.push(unsafe { std::ptr::read(p) } as char );
-  }
-
-  println!("{}", s);
-  println!("still there?\n{}", buffer);
+  println!("{}", htma::htparse(input.as_slice()));
+  println!("le buffer: {}", buffer);
 }
 
 mod htma
@@ -94,20 +84,9 @@ mod dma
   -> String
   {
     let decoded_memory_address = hex_str_to_uint(encoded_memory_address);
-    let p = std::raw::Slice {
-        data: (decoded_memory_address as *const u8),
-        len: memory_size
-        };
-    //let ret: &[u8] = unsafe { std::mem::transmute(p) };
-    let mut ret = String::new();
+    let p: *const &str = unsafe { std::mem::transmute(decoded_memory_address as *const u8) };
 
-    //format!("ptr: {}\nu8: {}", unsafe { std::ptr::read(decoded_memory_address as *const u8) }, ret)
-    for i in std::iter::range(0, memory_size)
-    {
-      ret.push(unsafe { std::ptr::read((decoded_memory_address + i) as &&str) } as char);
-    }
-
-    ret
+    format!("ptr: {}\nstr: {}", decoded_memory_address as *const u8, unsafe { *p } )
   }
 
   // because nothing stable can do le hex >.<
