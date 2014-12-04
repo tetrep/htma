@@ -1,7 +1,9 @@
+static mut sigsegv = false;
+
 fn main()
 {
-  let buffer = "Hello, world!";
-  println!("{:p}\n{}", (&buffer), buffer.len());
+  let buffer: &'static str = "Hello, world!";
+  println!("{:p}\n{}", &buffer, std::mem::size_of_val(&buffer));
 
   /*
   let input = std::io::stdin().read_line()
@@ -11,6 +13,7 @@ fn main()
   println!("{}", htma::htparse_raw(input.as_slice()));
   */
 
+  println!("listening: 127.0.0.1 1066");
   htmacp::repl("127.0.0.1", "1066", htma::htparse);
 
   println!("le buffer: {}", buffer);
@@ -19,12 +22,20 @@ fn main()
 mod htmacp
 {
   #![warn(experimental)]
+  //because rust can't handle signals :(
+  extern crate libc;
 
   use std;
 
   //because traits can't scope....
   use std::io::Listener;
   use std::io::Acceptor;
+
+  extern fn handle_sigsegv(sig: i64)
+  {
+    if (11 == sig) { println!("totes seg fault\n"); }
+    panic!("signal: {}", sig);
+  }
 
   fn rep(mut connection: std::io::TcpStream, eval: fn (&str) -> String)
   {
@@ -39,8 +50,14 @@ mod htmacp
     connection.write_str(eval(buffer_str).as_slice());
   }
 
+  //#[link(name = "signal")]
+  extern { fn signal(sig: i64, cb: extern fn(i64)); }
+
   pub fn repl(ip: &str, port: &str, eval: fn (&str) -> String)
   {
+    //dat signal handle
+    unsafe { signal(11, handle_sigsegv); }
+
     let listener = std::io::TcpListener::bind(format!("{}:{}", ip, port).as_slice())
       .ok()
       .expect("failed to bind");
@@ -53,9 +70,8 @@ mod htmacp
       match connection
       {
         Err(e) => { println!("weeoweeoweeo: {}", e); }
-        Ok(connection) => spawn( proc() { rep(connection, eval); })
+        Ok(connection) => { rep(connection, eval); }
       }
-      break;
     }
 
     drop(acceptor);
@@ -91,11 +107,11 @@ mod htma
   {
     let mut req_mem = tktk_get(input);
 
-    let p = dma::get_memory_pointer(req_mem.size, req_mem.string.as_slice());
+    req_mem.pointer = dma::get_memory_pointer(req_mem.size, req_mem.string.as_slice());
 
-    let http_str = unsafe { *(p as *const &str) };
+    let http_str = unsafe { *(req_mem.pointer as *const &str) };
 
-    println!("hello, world!\n{}\n", http_str);
+    println!("grabbing {} bytes from {}", req_mem.size, req_mem.pointer);
 
     add_headers(http_str)
   }
@@ -135,8 +151,8 @@ mod htma
   fn add_headers(body: &str)
   -> String
   {
-    println!("HTTP 200 OK\nContent-Type: text/plain\nContent-Length: {}\n{}", body.len(), body)
-    format!("HTTP 200 OK\nContent-Type: text/plain\nContent-Length: {}\n{}", body.len(), body)
+    //println!("HTTP 200 OK\nContent-Type: text/plain\nContent-Length: {}\n{}", body.len(), body)
+    format!("HTTP 200 OK\nContent-Type: text/plain\nContent-Length: {}\n\n{}\n\n", body.len(), body)
   }
 }
 
@@ -162,27 +178,28 @@ mod dma
   {
     let mut ret_uint = 0;
     let mut sig = hex_str.len()-1;
+    let mut trailing_zero = false;
 
     for c in hex_str.chars()
     {
       match c
       {
-        '0' => {sig -= 1},
-        '1' => {ret_uint = 1*16.pow(sig) + ret_uint;},
-        '2' => {ret_uint = 2*16.pow(sig) + ret_uint;},
-        '3' => {ret_uint = 3*16.pow(sig) + ret_uint;},
-        '4' => {ret_uint = 4*16.pow(sig) + ret_uint;},
-        '5' => {ret_uint = 5*16.pow(sig) + ret_uint;},
-        '6' => {ret_uint = 6*16.pow(sig) + ret_uint;},
-        '7' => {ret_uint = 7*16.pow(sig) + ret_uint;},
-        '8' => {ret_uint = 8*16.pow(sig) + ret_uint;},
-        '9' => {ret_uint = 9*16.pow(sig) + ret_uint;},
-        'a' => {ret_uint = 10*16.pow(sig) + ret_uint;},
-        'b' => {ret_uint = 11*16.pow(sig) + ret_uint;},
-        'c' => {ret_uint = 12*16.pow(sig) + ret_uint;},
-        'd' => {ret_uint = 13*16.pow(sig) + ret_uint;},
-        'e' => {ret_uint = 14*16.pow(sig) + ret_uint;},
-        'f' => {ret_uint = 15*16.pow(sig) + ret_uint;},
+        '0' => { },
+        '1' => {ret_uint += 1*16.pow(sig);},
+        '2' => {ret_uint += 2*16.pow(sig);},
+        '3' => {ret_uint += 3*16.pow(sig);},
+        '4' => {ret_uint += 4*16.pow(sig);},
+        '5' => {ret_uint += 5*16.pow(sig);},
+        '6' => {ret_uint += 6*16.pow(sig);},
+        '7' => {ret_uint += 7*16.pow(sig);},
+        '8' => {ret_uint += 8*16.pow(sig);},
+        '9' => {ret_uint += 9*16.pow(sig);},
+        'a' => {ret_uint += 10*16.pow(sig);},
+        'b' => {ret_uint += 11*16.pow(sig);},
+        'c' => {ret_uint += 12*16.pow(sig);},
+        'd' => {ret_uint += 13*16.pow(sig);},
+        'e' => {ret_uint += 14*16.pow(sig);},
+        'f' => {ret_uint += 15*16.pow(sig);},
         _   => {ret_uint = 0; break;}, // srsly...
       }
 
