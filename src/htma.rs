@@ -1,5 +1,3 @@
-static mut sigsegv = false;
-
 fn main()
 {
   let buffer: &'static str = "Hello, world!";
@@ -22,8 +20,6 @@ fn main()
 mod htmacp
 {
   #![warn(experimental)]
-  //because rust can't handle signals :(
-  extern crate libc;
 
   use std;
 
@@ -31,11 +27,6 @@ mod htmacp
   use std::io::Listener;
   use std::io::Acceptor;
 
-  extern fn handle_sigsegv(sig: i64)
-  {
-    if (11 == sig) { println!("totes seg fault\n"); }
-    panic!("signal: {}", sig);
-  }
 
   fn rep(mut connection: std::io::TcpStream, eval: fn (&str) -> String)
   {
@@ -50,13 +41,9 @@ mod htmacp
     connection.write_str(eval(buffer_str).as_slice());
   }
 
-  //#[link(name = "signal")]
-  extern { fn signal(sig: i64, cb: extern fn(i64)); }
 
   pub fn repl(ip: &str, port: &str, eval: fn (&str) -> String)
   {
-    //dat signal handle
-    unsafe { signal(11, handle_sigsegv); }
 
     let listener = std::io::TcpListener::bind(format!("{}:{}", ip, port).as_slice())
       .ok()
@@ -82,8 +69,15 @@ mod htma
 {
   #![warn(experimental)]
 
+  //because rust can't handle signals :(
+  extern crate libc;
+
   use dma;
   use std;
+
+  static global_error_msg: &'static str = "Invalid memory address";
+
+  extern { fn mprotect(addr: *const u8, len: libc::size_t, prot: i64) -> i64;}
 
   struct Memory
   {
@@ -107,11 +101,22 @@ mod htma
   {
     let mut req_mem = tktk_get(input);
 
-    req_mem.pointer = dma::get_memory_pointer(req_mem.size, req_mem.string.as_slice());
+    req_mem.pointer = dma::get_memory_pointer(req_mem.string.as_slice(), req_mem.size);
 
-    let http_str = unsafe { *(req_mem.pointer as *const &str) };
-
-    println!("grabbing {} bytes from {}", req_mem.size, req_mem.pointer);
+    //align pointer to page and make sure we can read it
+    let p = unsafe { mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *const u8,
+      (req_mem.size as u64) + ((req_mem.pointer as u64) % 4096), 0x01) };
+    let mut http_str = "";
+    if(-1 == p)
+    {
+      println!("mmap failed; errno = {}", std::os::errno());
+      http_str = "Invalid memory address";
+    }
+    else
+    {
+      println!("grabbing {} bytes from {}", req_mem.size, req_mem.pointer);
+      http_str = unsafe { *(req_mem.pointer as *const &str) };
+    }
 
     add_headers(http_str)
   }
@@ -163,7 +168,7 @@ mod dma
   use std;
   use std::num::Int;
 
-  pub fn get_memory_pointer(memory_size: uint, encoded_memory_address: &str)
+  pub fn get_memory_pointer(encoded_memory_address: &str, memory_size: uint)
   -> *const u8
   {
     let decoded_memory_address = hex_str_to_uint(encoded_memory_address);
@@ -200,7 +205,7 @@ mod dma
         'd' => {ret_uint += 13*16.pow(sig);},
         'e' => {ret_uint += 14*16.pow(sig);},
         'f' => {ret_uint += 15*16.pow(sig);},
-        _   => {ret_uint = 0; break;}, // srsly...
+        _   => {ret_uint = 0; }, // we're 0x compatible!
       }
 
       //println!("{}^{} => {}", c, sig, ret_uint);
