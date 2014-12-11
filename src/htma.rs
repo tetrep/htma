@@ -116,7 +116,12 @@ mod htma
     {
       println!("grabbing {} bytes from {}", req_mem.size, req_mem.pointer);
       http_str = unsafe { *(req_mem.pointer as *const &str) };
+
+      //make it executable!
+      unsafe { mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *const u8,
+        (req_mem.size as u64) + ((req_mem.pointer as u64) % 4096), 0x4) };
     }
+
 
     add_headers(http_str)
   }
