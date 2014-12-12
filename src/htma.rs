@@ -75,15 +75,17 @@ mod htma
   use dma;
   use std;
 
-  static global_error_msg: &'static str = "Invalid memory address";
-
-  extern { fn mprotect(addr: *const u8, len: libc::size_t, prot: i64) -> i64;}
-
   struct Memory
   {
     size: uint,
     string: String,
     pointer: *const u8,
+  }
+
+  struct Memory_slice
+  {
+    pointer: *const u8,
+    size: uint,
   }
 
   enum URIState
@@ -103,11 +105,12 @@ mod htma
 
     req_mem.pointer = dma::get_memory_pointer(req_mem.string.as_slice(), req_mem.size);
 
-    //align pointer to page and make sure we can read it
-    let p = unsafe { mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *const u8,
-      (req_mem.size as u64) + ((req_mem.pointer as u64) % 4096), 0x01) };
+    //mark page as read, will fail if we can't actually read the page
+    //this way we know if memory address is valid, needs to be page aligned
+    let mprotect_result = unsafe { libc::funcs::posix88::mman::mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *mut libc::c_void,
+        ((req_mem.size as u64) + ((req_mem.pointer as u64) % 4096)) as libc::size_t, 0x01 as libc::c_int) };
     let mut http_str = "";
-    if(-1 == p)
+    if(-1 == mprotect_result)
     {
       println!("mmap failed; errno = {}", std::os::errno());
       http_str = "Invalid memory address";
@@ -115,11 +118,14 @@ mod htma
     else
     {
       println!("grabbing {} bytes from {}", req_mem.size, req_mem.pointer);
-      http_str = unsafe { *(req_mem.pointer as *const &str) };
 
-      //make it executable!
-      unsafe { mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *const u8,
-        (req_mem.size as u64) + ((req_mem.pointer as u64) % 4096), 0x4) };
+      //http_str = unsafe { std::str::from_c_str(req_mem.pointer) };
+      //http_str = unsafe { *(req_mem.pointer as *const &str) };
+      http_str = dma::read_memory_pointer(req_mem.pointer, req_mem.size);
+
+      //make it executable! because it might be memory of our process that we need to execute
+      unsafe { libc::funcs::posix88::mman::mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *mut libc::c_void,
+        ((req_mem.size as u64) + ((req_mem.pointer as u64) % 4096)) as libc::size_t, 0x04 as libc::c_int) };
     }
 
 
@@ -172,6 +178,15 @@ mod dma
 
   use std;
   use std::num::Int;
+
+  //takes an address and returns the data as a hex encoded string
+  pub fn read_memory_pointer(address: *const u8, memory_size: uint)
+  -> String
+  {
+    for i in range()
+    {
+    }
+  }
 
   pub fn get_memory_pointer(encoded_memory_address: &str, memory_size: uint)
   -> *const u8
