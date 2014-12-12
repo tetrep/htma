@@ -69,9 +69,6 @@ mod htma
 {
   #![warn(experimental)]
 
-  //because rust can't handle signals :(
-  extern crate libc;
-
   use dma;
   use std;
 
@@ -107,7 +104,7 @@ mod htma
 
     let http_str = dma::read_memory_pointer(req_mem.pointer, req_mem.size);
 
-    add_headers(http_str)
+    add_headers(http_str.as_slice())
   }
 
   fn tktk_get(input: &str)
@@ -154,12 +151,13 @@ mod dma
 {
   #![warn(experimental)]
 
+  extern crate libc;
+
   use std;
   use std::num::Int;
-  use libc;
 
   //takes an address and returns the data as a hex encoded string
-  pub fn read_memory_pointer(address: *const u8, memory_size: uint)
+  pub fn read_memory_pointer(memory_address: *const u8, memory_size: uint)
   -> String
   {
     //mark part of page as read, will fail if we can't actually read the page
@@ -170,30 +168,35 @@ mod dma
       ((memory_size as u64) + ((memory_address as u64) % 4096)) as libc::size_t, 0x01 as libc::c_int)
     };
 
-    let mut http_str = "";
+    let mut http_string: String = "".to_string();
 
     if(-1 == mprotect_result)
     {
       println!("mmap failed; errno = {}", std::os::errno());
-      http_str = "Invalid memory address";
+      http_string = "Invalid memory address".to_string();
     }
     else
     {
-      println!("grabbing {} bytes from {}", req_mem.size, req_mem.pointer);
-      http_str = "weoeoeo";
+      println!("grabbing {} bytes from {}", memory_size, memory_address);
 
       //http_str = unsafe { std::str::from_c_str(req_mem.pointer) };
       //http_str = unsafe { *(req_mem.pointer as *const &str) };
-      for i in range(0, 5)
+      for i in std::iter::range(0, memory_size)
       {
+        //get the byte
+        let byte = unsafe { *(((memory_address as uint) + i) as *const u8) };
+        //high byte
+        http_string.push(u8_to_hex((byte & 0xf0) >> 4));
+        //low byte
+        http_string.push(u8_to_hex(byte & 0x0f));
       }
 
       //make it executable! because it might be memory of our process that we need to execute
-      unsafe { libc::funcs::posix88::mman::mprotect(((req_mem.pointer as u64) - ((req_mem.pointer as u64) % 4096)) as *mut libc::c_void,
-        ((req_mem.size as u64) + ((req_mem.pointer as u64) % 4096)) as libc::size_t, 0x04 as libc::c_int) };
+      unsafe { libc::funcs::posix88::mman::mprotect(((memory_address as u64) - ((memory_address as u64) % 4096)) as *mut libc::c_void,
+        ((memory_size as u64) + ((memory_address as u64) % 4096)) as libc::size_t, 0x04 as libc::c_int) };
     }
 
-    http_str
+    http_string
   }
 
   pub fn get_memory_pointer(encoded_memory_address: &str)
@@ -242,5 +245,60 @@ mod dma
     }
 
     ret_uint
+  }
+
+  pub fn hex_byte_to_u8(c: char)
+  -> u8
+  {
+    let mut ret_uint: u8 = 0;
+    match c
+    {
+      '0' => { ret_uint = 0 },
+      '1' => { ret_uint = 1 },
+      '2' => { ret_uint = 2 },
+      '3' => { ret_uint = 3 },
+      '4' => { ret_uint = 4 },
+      '5' => { ret_uint = 5 },
+      '6' => { ret_uint = 6 },
+      '7' => { ret_uint = 7 },
+      '8' => { ret_uint = 8 },
+      '9' => { ret_uint = 9 },
+      'a' => { ret_uint = 10 },
+      'b' => { ret_uint = 11 },
+      'c' => { ret_uint = 12 },
+      'd' => { ret_uint = 13 },
+      'e' => { ret_uint = 14 },
+      'f' => { ret_uint = 15 },
+      _   => { ret_uint = 0; }, // we're 0x compatible!
+    }
+
+    ret_uint
+  }
+  pub fn u8_to_hex(byte: u8)
+  -> char
+  {
+    let mut ret_char: char = 'x';
+    match byte
+    {
+      0  => { ret_char = '0' },
+      1  => { ret_char = '1' },
+      2  => { ret_char = '2' },
+      3  => { ret_char = '3' },
+      4  => { ret_char = '4' },
+      5  => { ret_char = '5' },
+      6  => { ret_char = '6' },
+      7  => { ret_char = '7' },
+      8  => { ret_char = '8' },
+      9  => { ret_char = '9' },
+      10 => { ret_char = 'a' },
+      11 => { ret_char = 'b' },
+      12 => { ret_char = 'c' },
+      13 => { ret_char = 'd' },
+      14 => { ret_char = 'e' },
+      15 => { ret_char = 'f' },
+      _  => { ret_char = 'x' },
+    }
+
+    ret_char
   }
 }
