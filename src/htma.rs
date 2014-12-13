@@ -173,7 +173,7 @@ mod dma
     if(-1 == mprotect_result)
     {
       println!("mmap failed; errno = {}", std::os::errno());
-      http_string = "Invalid memory address".to_string();
+      http_string = format!("{:p}", &"Invalid memory address");
     }
     else
     {
@@ -186,7 +186,7 @@ mod dma
         //get the byte
         let byte = unsafe { *(((memory_address as uint) + i) as *const u8) };
         //high byte
-        http_string.push(u8_to_hex((byte & 0xf0) >> 4));
+        http_string.push(u8_to_hex(byte >> 4));
         //low byte
         http_string.push(u8_to_hex(byte & 0x0f));
       }
@@ -208,38 +208,17 @@ mod dma
     p
   }
 
-  // because nothing stable can do le hex >.<
+  // because nothing stable can do hex >.<
   pub fn hex_str_to_uint(hex_str: &str)
   -> uint
   {
     let mut ret_uint = 0;
-    let mut sig = hex_str.len()-1;
+    let mut sig = hex_str.len();
     let mut trailing_zero = false;
 
     for c in hex_str.chars()
     {
-      match c
-      {
-        '0' => { },
-        '1' => {ret_uint += 1*16.pow(sig);},
-        '2' => {ret_uint += 2*16.pow(sig);},
-        '3' => {ret_uint += 3*16.pow(sig);},
-        '4' => {ret_uint += 4*16.pow(sig);},
-        '5' => {ret_uint += 5*16.pow(sig);},
-        '6' => {ret_uint += 6*16.pow(sig);},
-        '7' => {ret_uint += 7*16.pow(sig);},
-        '8' => {ret_uint += 8*16.pow(sig);},
-        '9' => {ret_uint += 9*16.pow(sig);},
-        'a' => {ret_uint += 10*16.pow(sig);},
-        'b' => {ret_uint += 11*16.pow(sig);},
-        'c' => {ret_uint += 12*16.pow(sig);},
-        'd' => {ret_uint += 13*16.pow(sig);},
-        'e' => {ret_uint += 14*16.pow(sig);},
-        'f' => {ret_uint += 15*16.pow(sig);},
-        _   => {ret_uint = 0; }, // we're 0x compatible!
-      }
-
-      //println!("{}^{} => {}", c, sig, ret_uint);
+      ret_uint += ((hex_byte_to_u8(c) as uint) << 4*(sig-1));
 
       sig -= 1;
     }
