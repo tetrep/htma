@@ -169,17 +169,19 @@ mod dma
       ((memory_size as u64) + ((memory_address as u64) % 4096)) as libc::size_t, 0x01 | 0x02 | 0x04 as libc::c_int)
     };
 
-    let mut http_string: String = "".to_string();
+    let mut http_string = format!("Try this: /{:p}/32", &"Invalid memory address");
 
     if(-1 == mprotect_result)
     {
       println!("mprotect failed; errno = {}", std::os::errno());
-      http_string = format!("{:p}", &"Invalid memory address");
+      http_string = format!("Try this: /{:p}/32", &"Invalid memory address");
     }
-    else
+    else if(0 != memory_size)
     {
       println!("grabbing {} bytes from {}", memory_size, memory_address);
       //std::io::timer::sleep(std::time::duration::Duration::seconds(5));
+
+      http_string = format!("");
 
       for i in std::iter::range(0, memory_size)
       {
