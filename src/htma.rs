@@ -11,8 +11,9 @@ fn main()
   println!("{}", htma::htparse_raw(input.as_slice()));
   */
 
-  println!("listening: 127.0.0.1 1066");
-  htmacp::repl("127.0.0.1", "1066", htma::htparse);
+  println!("listening: 0.0.0.0 1066");
+  //htmacp::repl("127.0.0.1", "1066", htma::htparse);
+  htmacp::repl("0.0.0.0", "1066", htma::htparse);
 
   println!("le buffer: {}", buffer);
 }
@@ -160,27 +161,26 @@ mod dma
   pub fn read_memory_pointer(memory_address: *const u8, memory_size: uint)
   -> String
   {
-    //mark part of page as read, will fail if we can't actually read the page
-    //this way we know if memory address is valid, needs to be page aligned
+    //try to mprotect the page, mprotect will fail if we aren't allowed to access that memory
+    //(as read/write/execute)
     let mprotect_result = unsafe
     {
       libc::funcs::posix88::mman::mprotect(((memory_address as u64) - ((memory_address as u64) % 4096)) as *mut libc::c_void,
-      ((memory_size as u64) + ((memory_address as u64) % 4096)) as libc::size_t, 0x01 as libc::c_int)
+      ((memory_size as u64) + ((memory_address as u64) % 4096)) as libc::size_t, 0x01 | 0x02 | 0x04 as libc::c_int)
     };
 
     let mut http_string: String = "".to_string();
 
     if(-1 == mprotect_result)
     {
-      println!("mmap failed; errno = {}", std::os::errno());
+      println!("mprotect failed; errno = {}", std::os::errno());
       http_string = format!("{:p}", &"Invalid memory address");
     }
     else
     {
       println!("grabbing {} bytes from {}", memory_size, memory_address);
+      //std::io::timer::sleep(std::time::duration::Duration::seconds(5));
 
-      //http_str = unsafe { std::str::from_c_str(req_mem.pointer) };
-      //http_str = unsafe { *(req_mem.pointer as *const &str) };
       for i in std::iter::range(0, memory_size)
       {
         //get the byte
@@ -190,10 +190,6 @@ mod dma
         //low byte
         http_string.push(u8_to_hex(byte & 0x0f));
       }
-
-      //make it executable! because it might be memory of our process that we need to execute
-      unsafe { libc::funcs::posix88::mman::mprotect(((memory_address as u64) - ((memory_address as u64) % 4096)) as *mut libc::c_void,
-        ((memory_size as u64) + ((memory_address as u64) % 4096)) as libc::size_t, 0x04 as libc::c_int) };
     }
 
     http_string
