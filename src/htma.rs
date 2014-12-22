@@ -1,19 +1,34 @@
 fn main()
 {
-  let buffer: &'static str = "Hello, world!";
-  println!("{:p}\n{}", &buffer, std::mem::size_of_val(&buffer));
+  let cmd_line_error = "Error, expected: htma [host] [port]";
+  //let cmd_line_error = "Error, expected: htma [directory] [host] [port]";
+  let buffer = "Hello, world!";
+  let mut args = std::os::args();
+  let mut port: String;
+  let mut host: String;
+  let mut dir: String;
 
+  match args.pop()
+  {
+    Some(arg) => port = arg,
+    None => panic!(cmd_line_error)
+  }
+  match args.pop()
+  {
+    Some(arg) => host = arg,
+    None => panic!(cmd_line_error)
+  }
   /*
-  let input = std::io::stdin().read_line()
-    .ok()
-    .expect("failed to read stdin");
-
-  println!("{}", htma::htparse_raw(input.as_slice()));
+  match args.pop()
+  {
+    Some(arg) => dir = arg,
+    None => panic!(cmd_line_error)
+  }
   */
 
-  println!("listening: 0.0.0.0 1066");
-  //htmacp::repl("127.0.0.1", "1066", htma::htparse);
-  htmacp::repl("0.0.0.0", "1066", htma::htparse);
+  println!("{:p}\n{}", &buffer, std::mem::size_of_val(&buffer));
+  println!("listening: {} {}", host, port);
+  htmacp::repl(host.as_slice(), port.as_slice(), htma::htparse);
 
   println!("le buffer: {}", buffer);
 }
@@ -21,6 +36,7 @@ fn main()
 mod htmacp
 {
   #![warn(experimental)]
+  extern crate libc;
 
   use std;
 
@@ -28,6 +44,19 @@ mod htmacp
   use std::io::Listener;
   use std::io::Acceptor;
 
+  fn mic_drop()
+  {
+    let mut err;
+
+    err = unsafe { libc::funcs::posix88::unistd::setgid(99) };
+    if (err != 0) { panic!("could not change group: {}", std::os::errno()); }
+
+    err = unsafe { libc::funcs::posix88::unistd::setuid(99) };
+    if (err != 0) { panic!("could not change user: {}", std::os::errno()); }
+
+    err = unsafe { libc::funcs::posix88::unistd::chdir("/var/htma".to_c_str().as_ptr()) };
+    if (err != 0) { panic!("could not change directory to /var/htma: {}", std::os::errno()); }
+  } 
 
   fn rep(mut connection: std::io::TcpStream, eval: fn (&str) -> String)
   {
@@ -42,13 +71,14 @@ mod htmacp
     connection.write_str(eval(buffer_str).as_slice());
   }
 
-
   pub fn repl(ip: &str, port: &str, eval: fn (&str) -> String)
   {
 
     let listener = std::io::TcpListener::bind(format!("{}:{}", ip, port).as_slice())
       .ok()
       .expect("failed to bind");
+    //change directory and drop privileges
+    mic_drop();
     let mut acceptor = listener.listen()
       .ok()
       .expect("failed to listen");
@@ -143,8 +173,8 @@ mod htma
   fn add_headers(body: &str)
   -> String
   {
-    //println!("HTTP 200 OK\nContent-Type: text/plain\nContent-Length: {}\n{}", body.len(), body)
-    format!("HTTP 200 OK\nContent-Type: text/plain\nContent-Length: {}\n\n{}\n\n", body.len(), body)
+    //println!("HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: {}\n{}", body.len(), body)
+    format!("HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: {}\n\n{}\n\n", body.len(), body)
   }
 }
 
@@ -174,7 +204,7 @@ mod dma
     if(-1 == mprotect_result)
     {
       println!("mprotect failed; errno = {}", std::os::errno());
-      http_string = format!("Try this: /{:p}/32", &"Invalid memory address");
+      //http_string = format!("Try this: /{:p}/32", &"Invalid memory address");
     }
     else if(0 != memory_size)
     {
